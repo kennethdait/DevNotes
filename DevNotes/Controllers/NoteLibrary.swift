@@ -10,7 +10,7 @@ import UIKit
 
 class NoteLibrary: UITableViewController {
     
-    var noteArray = [String]()
+    var noteArray = [Note]()
     var addButtonItem, deleteAllButtonItem: UIBarButtonItem!
 
     override func viewDidLoad() {
@@ -34,7 +34,8 @@ class NoteLibrary: UITableViewController {
         #if DEBUG
         
         for x in 1...20 {
-            self.noteArray.append("new note #\(x)")
+            let newNote = Note("new note #\(x)")
+            self.noteArray.append(newNote)
         }
         self.tableView.reloadData()
         #endif
@@ -47,16 +48,26 @@ class NoteLibrary: UITableViewController {
         super.setEditing(false, animated: true)
         self.tableView.setEditing(false, animated: true)
         navigationController?.setToolbarHidden(true, animated: true)
+        navigationItem.rightBarButtonItem = addButtonItem
+        navigationItem.leftBarButtonItem = nil
     }
     
     @objc func addButtonTapped(_ sender: UIBarButtonItem) {
         print("addbutton was tapped")
         
-        let newNote = "Added Note #\(self.noteArray.count + 1)"
+        let newNote = Note("Added Note #\(self.noteArray.count + 1)")
         self.noteArray.insert(newNote, at: 0)
+        
+        if self.noteArray.count == 1 {
+            if navigationItem.leftBarButtonItem == nil {
+                navigationItem.leftBarButtonItem = editButtonItem
+            }
+        }
         
         self.tableView.insertRows(at: [IndexPath(row: 0, section: 0)], with: .left)
         self.tableView.reloadData()
+        
+        
         
         if let selectedRow = self.tableView.indexPathForSelectedRow?.row {
             self.tableView.deselectRow(at: IndexPath(row: selectedRow, section: 0), animated: true)
@@ -68,6 +79,10 @@ class NoteLibrary: UITableViewController {
         
         navigationController?.setToolbarHidden(!editing, animated: true)
         navigationItem.rightBarButtonItem = editing ? nil : addButtonItem
+        
+        if !editing && self.noteArray.count == 0 {
+            navigationItem.leftBarButtonItem = nil
+        }
     }
     
     override func numberOfSections(in tableView: UITableView) -> Int {
@@ -79,8 +94,16 @@ class NoteLibrary: UITableViewController {
     }
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "noteCell", for: indexPath)
-        cell.textLabel?.text = self.noteArray[indexPath.row]
+        guard self.noteArray.indices.contains(indexPath.row) else { fatalError() }
+        
+        
+        let cell: UITableViewCell = UITableViewCell(style: UITableViewCell.CellStyle.subtitle, reuseIdentifier: "noteCell")
+        //let cell = tableView.dequeueReusableCell(withIdentifier: "noteCell", for: indexPath)
+        
+        
+        let targetNote = self.noteArray[indexPath.row]
+        cell.textLabel?.text = targetNote.contents
+        cell.detailTextLabel?.text = targetNote.noteID.uuidString
         return cell
     }
     
@@ -95,9 +118,32 @@ class NoteLibrary: UITableViewController {
             return
         }
     }
+    
+    override func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
+        return true
+    }
+    
+    override func tableView(_ tableView: UITableView, canMoveRowAt indexPath: IndexPath) -> Bool {
+        return true
+    }
+    
+    override func tableView(_ tableView: UITableView, moveRowAt sourceIndexPath: IndexPath, to destinationIndexPath: IndexPath) {
+        let movingNote = self.noteArray.remove(at: sourceIndexPath.row)
+        self.noteArray.insert(movingNote, at: destinationIndexPath.row)
+        tableView.reloadData()
+    }
 
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         print("ROW SELECTED: #\(indexPath.row)")
+        guard self.noteArray.indices.contains(indexPath.row) else { fatalError() }
+        let initNote = self.noteArray[indexPath.row]
+        if let selectedRow = tableView.indexPathForSelectedRow?.row {
+            tableView.deselectRow(at: IndexPath(row: selectedRow, section: 0), animated: true)
+            let detailVC = DetailViewController()
+            detailVC.initializeDetailView(self, selectedRow: selectedRow, initNote: initNote)
+            navigationController?.pushViewController(detailVC, animated: true)
+        }
+        
     }
  
 }
